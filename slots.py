@@ -5,244 +5,262 @@ from dataclasses import dataclass
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(
-    page_title="Meme Slots: HARD MODE",
-    page_icon="🤡",
+    page_title="Text Slots: Toxic Edition",
+    page_icon="💬",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
 # --- 2. ASSETS & DATA ---
-
 @dataclass
 class Symbol:
     emoji: str
     name: str
     payout: int
-    weight: int  # Higher = Common, Lower = Rare
+    weight: int
 
-# THE MATH (Weighted Probabilities)
-# Total weight = 100 approx
+# WEIGHTED MATH (Total ~100)
 SYMBOLS = [
-    Symbol("🥔", "Potato",      5,  45), # Very Common (45% chance per reel)
-    Symbol("💩", "Poop Emoji",  10, 25), # Common
-    Symbol("🍆", "Eggplant",    20, 15), # Uncommon
-    Symbol("🚀", "Moon",        50, 10), # Rare
-    Symbol("💎", "Diamond",     100, 4), # Very Rare
-    Symbol("🦄", "Unicorn",     500, 1)  # 1% chance (Jackpot)
+    Symbol("🥔", "Potato",      5,  45), # 45% chance
+    Symbol("💩", "Poop",        10, 25), # 25% chance
+    Symbol("🍆", "Eggplant",    20, 15), # 15% chance
+    Symbol("💀", "Skull",       50, 10), # 10% chance
+    Symbol("💎", "Diamond",     100, 4), # 4% chance
+    Symbol("🦄", "Unicorn",     500, 1)  # 1% chance
 ]
 
-# Quick lookups
-SYMBOL_MAP = {s.emoji: s for s in SYMBOLS}
+# Quick Lookups
 POPULATION = [s.emoji for s in SYMBOLS]
 WEIGHTS = [s.weight for s in SYMBOLS]
+SYMBOL_MAP = {s.emoji: s for s in SYMBOLS}
 
-# MEMES
-IMG_WIN = "https://i.imgflip.com/1ur9b0.jpg"       # Success Kid
-IMG_JACKPOT = "https://i.imgflip.com/1h7in3.jpg"   # Leo Toast
-IMG_LOSE = [
-    "https://i.imgflip.com/26am.jpg",              # Crying Jordan
-    "https://i.imgflip.com/39t54l.jpg",            # Harold Hide Pain
-    "https://i.imgflip.com/2GNK.jpg"               # Grumpy Cat
+# --- THE TEXT ENGINE (Expanded Humor) ---
+
+MSG_WELCOME = [
+    "Ready to lose some money?",
+    "The rent isn't going to pay itself.",
+    "I hope you brought your wallet.",
+    "Insert coin. Try not to cry.",
 ]
-IMG_BROKE = "https://i.kym-cdn.com/entries/icons/original/000/032/632/No_No_No_Not_Today_Dikembe_Mutombo_Meme_Banner.jpg" # Not today
 
-# TRASH TALK
-ROASTS = [
-    "My grandma spins better than you.",
-    "Is this your first time using a computer?",
-    "Don't quit your day job.",
-    "Oof. Even the algorithm feels bad for you.",
+MSG_ROAST = [
     "Skill issue.",
-    "Have you tried winning instead?",
-    "Your wallet is crying.",
-    "Maybe try Checkers?"
+    "My cat plays better than this.",
+    "Have you considered a different hobby?",
+    "Oof. That was embarrassing.",
+    "The algorithm is laughing at you.",
+    "Donate more to the house, please.",
+    "Yikes.",
+    "Are you even trying?",
+    "Emotional Damage.",
+    "Maybe try Checkers?",
+    "404: Win not found.",
+    "Imagine losing to a potato.",
 ]
 
-# --- 3. STATE ---
+MSG_NEAR_MISS = [ 
+    # Triggered when 2 symbols match but 3rd misses
+    "So close, yet so broke.",
+    "Baited.",
+    "The machine is teasing you.",
+    "Almost rich. (But actually poor).",
+    "Psych!",
+    "It hurts, doesn't it?"
+]
+
+MSG_WIN = [
+    "We take those!",
+    "Finally, a W.",
+    "Don't spend it all in one place.",
+    "Pure skill (it was luck).",
+    "Stonks 📈",
+    "Winner Winner Chicken Dinner.",
+    "IRS has entered the chat.",
+]
+
+MSG_JACKPOT = [
+    "🦄 UNBELIEVABLE SCENES! 🦄",
+    "MOM GET THE CAMERA!",
+    "RETIREMENT SECURED!",
+    "SYSTEM ERROR: YOU WEREN'T SUPPOSED TO WIN THIS!",
+    "GOD MODE ACTIVATED."
+]
+
+# --- 3. STATE MANAGEMENT ---
 if 'balance' not in st.session_state:
     st.session_state.balance = 200
 if 'reels' not in st.session_state:
     st.session_state.reels = ["🥔", "🥔", "🥔"]
-if 'game_state' not in st.session_state:
-    st.session_state.game_state = "READY" # READY, WIN, LOSE, BROKE
-if 'message' not in st.session_state:
-    st.session_state.message = "Feeling lucky, punk?"
-if 'current_meme' not in st.session_state:
-    st.session_state.current_meme = None
+if 'display_msg' not in st.session_state:
+    st.session_state.display_msg = random.choice(MSG_WELCOME)
+if 'msg_color' not in st.session_state:
+    st.session_state.msg_color = "#ffffff" # Default white
 
-# --- 4. CSS ---
+# --- 4. CSS STYLING ---
 st.markdown("""
     <style>
-    .stApp { background-color: #000; color: #fff; }
+    .stApp { background-color: #111; color: #fff; }
     
-    /* The Slot Machine Box */
-    .slot-box {
-        background: linear-gradient(135deg, #1a1a1a 0%, #333 100%);
-        border: 4px solid #ff00ff; /* Neon Pink */
-        border-radius: 20px;
+    /* CONSOLE BOX */
+    .console-box {
+        background-color: #000;
+        border: 2px solid #333;
+        border-radius: 10px;
         padding: 20px;
-        box-shadow: 0 0 20px #ff00ff;
+        font-family: 'Courier New', monospace;
         text-align: center;
         margin-bottom: 20px;
-    }
-
-    /* Reels */
-    .reel-row {
-        display: flex; justify-content: center; gap: 10px; margin: 20px 0;
-    }
-    .reel {
-        font-size: 60px;
-        background: #fff;
-        width: 80px; height: 80px;
-        border-radius: 10px;
+        min-height: 80px;
         display: flex; align-items: center; justify-content: center;
-        border: 3px solid #000;
-        box-shadow: inset 0 0 10px #000;
-        text-shadow: none;
-    }
-
-    /* Message Area */
-    .msg-box {
-        font-size: 20px; font-weight: bold; color: #00ff00; 
-        font-family: 'Courier New', monospace;
-        min-height: 50px;
-        display: flex; align-items: center; justify-content: center;
+        box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
     }
     
-    /* Custom Buttons */
-    .stButton>button {
-        width: 100%; font-weight: bold; font-size: 20px;
-        border-radius: 10px; height: 60px;
-        background: linear-gradient(90deg, #ff8a00, #e52e71);
-        color: white; border: none;
+    /* REELS */
+    .reel-container {
+        display: flex; justify-content: center; gap: 15px; margin-bottom: 30px;
     }
-    .stButton>button:active { transform: scale(0.98); }
+    .reel-box {
+        width: 100px; height: 100px;
+        background: linear-gradient(145deg, #222, #111);
+        border: 2px solid #555;
+        border-radius: 15px;
+        font-size: 60px;
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    }
+    
+    /* BUTTONS */
+    div.stButton > button {
+        width: 100%; height: 70px; font-size: 24px; font-weight: bold;
+        background: #333; color: white; border: 1px solid #555;
+        border-radius: 8px; transition: 0.2s;
+    }
+    div.stButton > button:hover {
+        background: #444; border-color: #fff;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 5. UI LAYOUT ---
+# --- 5. UI COMPONENTS ---
 
-st.markdown("<h1 style='text-align: center; color: #ff00ff;'>🎰 MEME SLOTS: HARD MODE</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; font-family: monospace; color: #00ff00;'>&gt; TERMINAL_SLOTS_v3.exe</h1>", unsafe_allow_html=True)
 
-# Top Bar: Money
+# 1. Stats Bar
 c1, c2 = st.columns(2)
 with c1:
-    st.markdown(f"<h3 style='color: #00ff00; border: 1px solid #00ff00; padding: 5px; text-align: center;'>💰 ${st.session_state.balance}</h3>", unsafe_allow_html=True)
+    st.metric("CREDITS", f"${st.session_state.balance}")
 with c2:
-    # Bet Selection
-    bet = st.select_slider("RISK IT ALL:", options=[10, 50, 100, "ALL IN"], value=10)
-    if bet == "ALL IN":
+    bet = st.select_slider("WAGER", options=[10, 50, 100, 200, "ALL"], value=10)
+    if bet == "ALL":
         bet = st.session_state.balance
 
-# THE MACHINE
-slot_placeholder = st.empty()
+# 2. The Machine (Reels)
+reel_placeholder = st.empty()
 
-def render_slot(r1, r2, r3, msg):
+def render_machine(r1, r2, r3):
     html = f"""
-    <div class="slot-box">
-        <div class="reel-row">
-            <div class="reel">{r1}</div>
-            <div class="reel">{r2}</div>
-            <div class="reel">{r3}</div>
-        </div>
-        <div class="msg-box">{msg}</div>
+    <div class="reel-container">
+        <div class="reel-box">{r1}</div>
+        <div class="reel-box">{r2}</div>
+        <div class="reel-box">{r3}</div>
     </div>
     """
-    slot_placeholder.markdown(html, unsafe_allow_html=True)
+    reel_placeholder.markdown(html, unsafe_allow_html=True)
 
-# Initial Render
-render_slot(*st.session_state.reels, st.session_state.message)
+render_machine(*st.session_state.reels)
+
+# 3. The Commentary Console (Replaces Images)
+msg_placeholder = st.empty()
+
+def render_console(text, color):
+    html = f"""
+    <div class="console-box" style="border-color: {color}; color: {color};">
+        &gt; {text}_
+    </div>
+    """
+    msg_placeholder.markdown(html, unsafe_allow_html=True)
+
+render_console(st.session_state.display_msg, st.session_state.msg_color)
 
 # --- 6. GAME LOGIC ---
 
-# Check Bankruptcy
-if st.session_state.balance <= 0:
-    st.error("📉 YOU ARE BROKE. GAME OVER.")
-    st.image(IMG_BROKE, caption="Access Denied", width=300)
-    
-    if st.button("🥺 Beg the Developer for $50"):
-        st.session_state.balance = 50
-        st.session_state.game_state = "READY"
-        st.session_state.message = "Don't blow it this time."
-        st.rerun()
+st.markdown("---")
 
+# BANKRUPTCY CHECK
+if st.session_state.balance <= 0:
+    render_console("CRITICAL FAILURE: WALLET EMPTY.", "#ff0000")
+    if st.button("REBOOT SYSTEM (Beg for $50)"):
+        st.session_state.balance = 50
+        st.session_state.display_msg = "System Rebooted. Try again."
+        st.session_state.msg_color = "#00ff00"
+        st.rerun()
 else:
-    # Spin Button
-    if st.button("🔥 SPIN THAT THING 🔥"):
+    # SPIN BUTTON
+    if st.button("EXECUTE SPIN"):
         
-        # 1. Validation
-        if bet > st.session_state.balance:
-            st.session_state.message = "You don't have that kind of money, chief."
+        # Validate Bet
+        current_bet = bet
+        if current_bet > st.session_state.balance:
+            st.session_state.display_msg = "ERROR: INSUFFICIENT FUNDS."
+            st.session_state.msg_color = "#ff0000"
             st.rerun()
-            
-        # 2. Pay up
-        st.session_state.balance -= bet
+
+        # Deduct Money
+        st.session_state.balance -= current_bet
         
-        # 3. Animation
-        roast = random.choice(["Spinning...", "No whammies...", "Pls win...", "Come on..."])
-        for _ in range(10):
+        # Animation
+        spin_phrases = ["Accessing Mainframe...", "Crunching Numbers...", "RNG goes brrr...", "Downloading RAM..."]
+        chosen_spin_phrase = random.choice(spin_phrases)
+        
+        for _ in range(8):
             temp = [random.choice(POPULATION) for _ in range(3)]
-            render_slot(*temp, roast)
+            render_machine(*temp)
+            render_console(chosen_spin_phrase, "#ffff00")
             time.sleep(0.08)
 
-        # 4. Result (Weighted)
-        # Using random.choices logic
+        # Generate Result
         final_reels = random.choices(POPULATION, weights=WEIGHTS, k=3)
         st.session_state.reels = final_reels
         
-        # 5. Win Check (STRICT 3-MATCH ONLY)
-        # Since we use weights, getting 3 of a kind is actually hard now.
-        if final_reels[0] == final_reels[1] == final_reels[2]:
-            symbol = SYMBOL_MAP[final_reels[0]]
-            win_amount = bet * symbol.payout
-            
+        # --- WIN/LOSS LOGIC ---
+        r1, r2, r3 = final_reels
+        
+        # 1. JACKPOT (3 Match)
+        if r1 == r2 == r3:
+            symbol = SYMBOL_MAP[r1]
+            win_amount = current_bet * symbol.payout
             st.session_state.balance += win_amount
-            st.session_state.message = f"OH BABY! TRIPLE {symbol.name}! (+${win_amount})"
             
-            if symbol.name == "Unicorn":
-                st.session_state.game_state = "JACKPOT"
-                st.session_state.current_meme = IMG_JACKPOT
+            # Special Jackpot Message
+            if symbol.name == "Unicorn" or symbol.name == "Diamond":
+                st.session_state.display_msg = random.choice(MSG_JACKPOT) + f" (+${win_amount})"
+                st.session_state.msg_color = "#00ffff" # Cyan
+                st.balloons()
             else:
-                st.session_state.game_state = "WIN"
-                st.session_state.current_meme = IMG_WIN
-                
+                st.session_state.display_msg = f"{random.choice(MSG_WIN)} (Matched {symbol.name}: +${win_amount})"
+                st.session_state.msg_color = "#00ff00" # Green
+                st.snow()
+
+        # 2. NEAR MISS (2 Match)
+        elif r1 == r2 or r2 == r3 or r1 == r3:
+            st.session_state.display_msg = random.choice(MSG_NEAR_MISS)
+            st.session_state.msg_color = "#ffaa00" # Orange
+
+        # 3. TOTAL LOSS
         else:
-            # LOSS
-            st.session_state.game_state = "LOSE"
-            st.session_state.message = random.choice(ROASTS)
-            st.session_state.current_meme = random.choice(IMG_LOSE)
+            st.session_state.display_msg = random.choice(MSG_ROAST)
+            st.session_state.msg_color = "#ff0000" # Red
 
         st.rerun()
 
-# --- 7. MEME ZONE ---
-if st.session_state.game_state == "WIN":
-    st.balloons()
-    st.success("WE TAKE THOSE!")
-    if st.session_state.current_meme:
-        st.image(st.session_state.current_meme, width=400)
-
-elif st.session_state.game_state == "JACKPOT":
-    st.balloons()
-    st.snow()
-    st.markdown("### 🦄 UNICORN STATUS ACHIEVED 🦄")
-    st.image(st.session_state.current_meme)
-
-elif st.session_state.game_state == "LOSE":
-    st.error("L + Ratio")
-    if st.session_state.current_meme:
-        st.image(st.session_state.current_meme, width=300)
-
-# --- 8. PAYOUT TABLE (Expandable) ---
-with st.expander("📊 View Probability & Payouts"):
-    st.markdown("""
-    **Rules:** Match 3 symbols exactly. No participation trophies.
-    
-    | Symbol | Name | Payout | Difficulty |
-    | :---: | :--- | :--- | :--- |
-    | 🦄 | Unicorn | **500x** | IMPOSSIBLE (1%) |
-    | 💎 | Diamond | **100x** | Hard (4%) |
-    | 🚀 | Moon | **50x** | Rare (10%) |
-    | 🍆 | Eggplant | **20x** | Uncommon (15%) |
-    | 💩 | Poop | **10x** | Common (25%) |
-    | 🥔 | Potato | **5x** | Everywhere (45%) |
-    """)
+# --- LEGEND ---
+with st.expander("VIEW SOURCE_CODE (Payouts)"):
+    st.code("""
+    if match == 🦄: return 500x  // 1% Chance
+    if match == 💎: return 100x  // 4% Chance
+    if match == 💀: return 50x   // 10% Chance
+    if match == 🍆: return 20x   // 15% Chance
+    if match == 💩: return 10x   // 25% Chance
+    if match == 🥔: return 5x    // 45% Chance
+    else: return EMOTIONAL_DAMAGE
+    """, language="python")
