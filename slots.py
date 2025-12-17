@@ -4,215 +4,183 @@ import time
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(
-    page_title="Pro Slots",
+    page_title="Smooth Slots",
     page_icon="🎰",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
 # --- 2. GAME SETTINGS ---
-# Symbol Payout Multipliers
-PAYOUTS = {
-    "🍒": 5, 
-    "🍋": 5, 
-    "🍇": 10, 
-    "🔔": 10, 
-    "7️⃣": 20, 
-    "💎": 50
-}
-SYMBOLS = list(PAYOUTS.keys())
+SYMBOLS = ["🍒", "🍋", "🔔", "💎", "7️⃣", "🍇"]
+PAYOUTS = {"🍒": 5, "🍋": 5, "🍇": 10, "🔔": 10, "7️⃣": 20, "💎": 50}
 
-# Funny Text Commentary
-QUIPS_SPIN = ["Rolling...", "Big Money...", "No Whammies...", "Good Vibes...", "Let's Go!"]
-QUIPS_LOSE = ["Oof.", "Try again.", "So close!", "Ripped off.", "House wins."]
-QUIPS_WIN = ["NICE!", "Cha-Ching!", "Easy Money!", "Pure Skill!", "JACKPOT?"]
+# --- 3. STATE ---
+if 'balance' not in st.session_state: st.session_state.balance = 200
+if 'reels' not in st.session_state: st.session_state.reels = ["7️⃣", "7️⃣", "7️⃣"]
+if 'msg' not in st.session_state: st.session_state.msg = "READY TO PLAY"
+if 'msg_color' not in st.session_state: st.session_state.msg_color = "#f1c40f" # Gold
 
-# --- 3. STATE MANAGEMENT ---
-if 'balance' not in st.session_state:
-    st.session_state.balance = 200
-if 'reels' not in st.session_state:
-    st.session_state.reels = ["7️⃣", "7️⃣", "7️⃣"]
-if 'message' not in st.session_state:
-    st.session_state.message = "Place your bet & Spin!"
-if 'last_win' not in st.session_state:
-    st.session_state.last_win = 0
-
-# --- 4. CSS STYLING (THE SMOOTH LOOK) ---
+# --- 4. CSS (LOCKED LAYOUT) ---
 st.markdown("""
     <style>
-    /* Main Dark Background */
-    .stApp {
-        background-color: #121212;
-        color: white;
-    }
+    .stApp { background-color: #121212; color: white; }
 
-    /* THE MACHINE FRAME */
-    .machine-container {
-        background: linear-gradient(180deg, #333, #1a1a1a);
-        border: 4px solid #d4af37; /* Gold Border */
+    /* --- THE CONTAINER (LOCKED HEIGHT) --- */
+    /* This is the key. We force height to 300px so it NEVER grows/shrinks */
+    .machine-box {
+        background: #222;
+        border: 4px solid #d4af37;
         border-radius: 15px;
         padding: 20px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.7);
-        text-align: center;
-        margin-bottom: 25px;
-    }
-
-    /* STATUS TEXT AREA (Fixed height to prevent jumping) */
-    .status-text {
-        font-family: sans-serif;
-        font-size: 18px;
-        font-weight: bold;
-        color: #f1c40f;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-bottom: 15px;
-        min-height: 25px; 
-    }
-
-    /* REEL CONTAINER */
-    .reel-container {
+        height: 320px; /* FIXED HEIGHT TO STOP SHAKING */
         display: flex;
-        justify-content: space-between;
-        gap: 10px;
-        background-color: #000;
-        padding: 12px;
-        border-radius: 10px;
-        border: 2px inset #555;
+        flex-direction: column;
+        justify-content: space-between; /* Space out elements evenly */
+        align-items: center;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        margin-bottom: 20px;
     }
 
-    /* INDIVIDUAL REELS */
-    .reel-box {
-        background-color: #f0f0f0;
-        width: 33%;
-        aspect-ratio: 1/1; /* Perfect Square */
+    /* STATUS TEXT */
+    .status-msg {
+        font-family: sans-serif;
+        font-size: 24px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        text-align: center;
+        margin-top: 10px;
+        height: 40px; /* Fixed height for text area */
+        width: 100%;
+    }
+
+    /* REELS ROW */
+    .reel-row {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        width: 100%;
+    }
+
+    /* REEL BOXES */
+    .reel {
+        background: #fff;
+        width: 80px;
+        height: 80px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 48px;
-        border-radius: 8px;
+        font-size: 50px;
+        border-radius: 10px;
+        border: 2px solid #555;
         box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
-        color: black;
-        cursor: default;
     }
 
-    /* WIDE 3D BUTTON */
+    /* --- THE BUTTON (FORCED WIDE) --- */
+    /* We target every possible button container to force width */
+    div.stButton {
+        width: 100%;
+    }
     div.stButton > button {
-        width: 100% !important;
-        height: 85px;
-        font-size: 26px;
-        font-weight: 800;
-        text-transform: uppercase;
-        color: white;
-        background: linear-gradient(to bottom, #ff512f, #dd2476);
-        border: none;
-        border-radius: 12px;
-        box-shadow: 0px 6px 0px #9e1a4d, 0px 10px 20px rgba(0,0,0,0.3);
-        transition: all 0.1s;
+        width: 100% !important; /* Force width */
+        height: 100px !important; /* Force height */
+        font-size: 30px !important;
+        font-weight: 900 !important;
+        background: linear-gradient(to bottom, #e74c3c, #c0392b) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 10px !important;
+        box-shadow: 0px 8px 0px #922b21 !important;
+        transition: transform 0.1s;
     }
-    
-    /* Button Press Animation */
     div.stButton > button:active {
-        transform: translateY(6px);
-        box-shadow: 0px 0px 0px #9e1a4d, inset 0px 5px 10px rgba(0,0,0,0.2);
+        transform: translateY(5px);
+        box-shadow: 0px 0px 0px #922b21 !important;
     }
     
-    /* BALANCE BADGE */
-    .balance-badge {
+    /* Balance Badge */
+    .balance {
+        text-align: center;
         font-family: monospace;
-        background-color: #222;
         color: #2ecc71;
+        font-size: 20px;
+        background: #333;
         padding: 10px;
         border-radius: 8px;
-        border: 1px solid #444;
-        text-align: center;
-        font-size: 20px;
-        font-weight: bold;
-        margin-bottom: 15px;
+        margin-bottom: 20px;
+        border: 1px solid #555;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 5. UI LAYOUT ---
+# --- 5. UI COMPONENTS ---
 
-# Title
-st.markdown("<h2 style='text-align: center; color: #d4af37;'>🎰 ROYAL SLOTS</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; color: #d4af37; margin-bottom:0;'>🎰 CASINO PRO</h2>", unsafe_allow_html=True)
 
-# Balance Display
-st.markdown(f"<div class='balance-badge'>CREDITS: ${st.session_state.balance}</div>", unsafe_allow_html=True)
+# Balance
+st.markdown(f"<div class='balance'>WALLET: ${st.session_state.balance}</div>", unsafe_allow_html=True)
 
 # Bet Slider
-bet_amount = st.select_slider("Select Bet:", options=[10, 20, 50, 100], value=10)
+bet = st.select_slider("Wager:", options=[10, 20, 50, 100], value=10)
 
-# SLOT MACHINE PLACEHOLDER
-slot_placeholder = st.empty()
+# SLOT MACHINE DISPLAY
+# We use a single placeholder to render the entire machine at once.
+machine_placeholder = st.empty()
 
-def render_machine(r1, r2, r3, msg):
+def render(r1, r2, r3, msg, color):
+    # This HTML structure is rigid. It uses flexbox to keep everything perfectly centered.
     html = f"""
-    <div class="machine-container">
-        <div class="status-text">{msg}</div>
-        <div class="reel-container">
-            <div class="reel-box">{r1}</div>
-            <div class="reel-box">{r2}</div>
-            <div class="reel-box">{r3}</div>
+    <div class="machine-box">
+        <div class="status-msg" style="color: {color};">{msg}</div>
+        <div class="reel-row">
+            <div class="reel">{r1}</div>
+            <div class="reel">{r2}</div>
+            <div class="reel">{r3}</div>
         </div>
+        <div style="height:10px;"></div> 
     </div>
     """
-    slot_placeholder.markdown(html, unsafe_allow_html=True)
+    machine_placeholder.markdown(html, unsafe_allow_html=True)
 
-# Initial Render
-render_machine(st.session_state.reels[0], st.session_state.reels[1], st.session_state.reels[2], st.session_state.message)
+# Initial Draw
+render(st.session_state.reels[0], st.session_state.reels[1], st.session_state.reels[2], st.session_state.msg, st.session_state.msg_color)
 
 # --- 6. GAME LOGIC ---
 
-if st.button(f"SPIN (${bet_amount})"):
-    if st.session_state.balance < bet_amount:
-        st.session_state.message = "🚫 INSUFFICIENT FUNDS"
-        render_machine(*st.session_state.reels, st.session_state.message)
+# The Button
+if st.button(f"SPIN (${bet})"):
+    if st.session_state.balance < bet:
+        st.session_state.msg = "INSUFFICIENT FUNDS"
+        st.session_state.msg_color = "#e74c3c" # Red
+        render(*st.session_state.reels, "INSUFFICIENT FUNDS", "#e74c3c")
     else:
-        # 1. Deduct Bet
-        st.session_state.balance -= bet_amount
-        st.session_state.last_win = 0
+        # Deduct
+        st.session_state.balance -= bet
         
-        # 2. Spin Animation (Loop)
-        # We render random symbols rapidly to simulate spinning
+        # --- SMOOTH ANIMATION ---
+        # We DO NOT change the text during spin. This stops the shaking.
         for _ in range(12):
             r1 = random.choice(SYMBOLS)
             r2 = random.choice(SYMBOLS)
             r3 = random.choice(SYMBOLS)
-            render_machine(r1, r2, r3, random.choice(QUIPS_SPIN))
-            time.sleep(0.08) # Speed of spin
+            render(r1, r2, r3, "SPINNING...", "#fff") # Text stays static white
+            time.sleep(0.06)
 
-        # 3. Calculate Final Result
+        # --- RESULT ---
         final_reels = [random.choice(SYMBOLS) for _ in range(3)]
         st.session_state.reels = final_reels
-
-        # 4. Check Win
+        
+        # Win Check
         if final_reels[0] == final_reels[1] == final_reels[2]:
-            # WIN
             symbol = final_reels[0]
-            multiplier = PAYOUTS[symbol]
-            winnings = bet_amount * multiplier
-            
-            st.session_state.balance += winnings
-            st.session_state.last_win = winnings
-            
-            msg = f"🎉 WIN! +${winnings}"
-            if symbol == "💎": msg = f"💎 JACKPOT! +${winnings}"
-            
-            st.session_state.message = msg
-            st.balloons() # Native streamlit confetti
+            win = bet * PAYOUTS[symbol]
+            st.session_state.balance += win
+            st.session_state.msg = f"WIN! +${win}"
+            st.session_state.msg_color = "#2ecc71" # Green
+            st.balloons()
         else:
-            # LOSE
-            st.session_state.message = random.choice(QUIPS_LOSE)
+            st.session_state.msg = "YOU LOST"
+            st.session_state.msg_color = "#e74c3c" # Red
 
-        # 5. Rerun to update balance
+        # Rerun to update balance
         st.rerun()
-
-# --- 7. PAYOUT INFO ---
-with st.expander("ℹ️ View Payouts"):
-    st.markdown("""
-    * 💎 **Diamond:** 50x Bet
-    * 7️⃣ **Seven:** 20x Bet
-    * 🍇 **Grape/Bell:** 10x Bet
-    * 🍒 **Cherry/Lemon:** 5x Bet
-    """)
