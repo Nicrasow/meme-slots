@@ -5,13 +5,13 @@ from dataclasses import dataclass
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(
-    page_title="CYBER SLOTS_v4",
-    page_icon="💾",
+    page_title="Pocket Slots Deluxe",
+    page_icon="🤡",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. THE MATH (WEIGHTED) ---
+# --- 2. DATA & ASSETS ---
 @dataclass
 class Symbol:
     emoji: str
@@ -19,273 +19,192 @@ class Symbol:
     payout: int
     weight: int
 
-# Probability: High weight = Common, Low weight = Rare
+# The Funny/Rude Symbols
 SYMBOLS = [
-    Symbol("🥔", "POTATO",    5,   45), # Trash
-    Symbol("💿", "DISK",      10,  25), # Common
-    Symbol("💾", "FLOPPY",    20,  15), # Uncommon
-    Symbol("🔋", "ENERGY",    50,  10), # Rare
-    Symbol("💎", "DIAMOND",   100, 4),  # Very Rare
-    Symbol("👽", "ALIEN",     500, 1)   # Jackpot
+    Symbol("🥔", "Potato",      5,   45),
+    Symbol("💩", "Poop",        10,  25),
+    Symbol("🍆", "Eggplant",    20,  15),
+    Symbol("🤡", "Clown",       50,  10),
+    Symbol("💎", "Diamond",     100, 4),
+    Symbol("🦄", "Unicorn",     500, 1)
 ]
 
 POPULATION = [s.emoji for s in SYMBOLS]
 WEIGHTS = [s.weight for s in SYMBOLS]
 SYMBOL_MAP = {s.emoji: s for s in SYMBOLS}
 
-# --- 3. THE "TRASH TALK" ENGINE ---
-LOG_WELCOME = [
-    "SYSTEM READY. INSERT CREDITS.",
-    "AWAITING INPUT...",
-    "DON'T BLAME THE ALGORITHM.",
-    "HIGH RISK // HIGH REWARD"
-]
-LOG_SPIN = [
-    "ACCESSING MAINFRAME...", 
-    "RNG CYCLES: OPTIMIZED", 
-    "DECRYPTING LUCK...", 
-    "OVERCLOCKING..."
-]
-LOG_LOSE = [
-    "ERROR 404: WIN NOT FOUND",
-    "SKILL_LEVEL: LOW",
-    "WALLET INTEGRITY: CRITICAL",
-    "TRY INSTALLING 'WIN.EXE'",
-    "MISSION FAILED.",
-    "SYSTEM LAUGHING AT USER."
-]
-LOG_NEAR = [
-    "WARNING: NEAR MISS DETECTED",
-    "SIGNAL INTERRUPTED...",
-    "SO CLOSE IT HURTS.",
-    "GLITCH IN THE MATRIX."
-]
-LOG_WIN = [
-    "SUCCESS! FUNDS ACQUIRED.",
-    "OPTIMAL OUTCOME.",
-    "PROTOCOL: CELEBRATE",
-    "PROFIT MARGIN: INCREASED"
-]
+# The Roasts
+LOG_WELCOME = ["READY TO LOSE?", "INSERT HOPES & DREAMS", "DO NOT ADDICT.", "MOM'S CREDIT CARD READY?"]
+LOG_SPIN = ["RNG GOING BRRR...", "DRAINING WALLET...", "CALCULATING REGRET...", "LOADING DISAPPOINTMENT..."]
+LOG_LOSE = ["Skill issue.", "Get wrecked.", "Imagine losing.", "My grandma spins better.", "Delete the app.", "Oof."]
+LOG_NEAR = ["SO CLOSE!", "Baited.", "The pixel missed.", "Almost rich (still poor)."]
+LOG_WIN = ["WE TAKE THOSE!", "Pure Skill.", "Rent is paid!", "Stonks 📈", "Finally a W."]
+LOG_JACKPOT = ["🦄 UNICORN GOD 🦄", "I AM SCREAMING", "JACKPOT!!!", "QUIT YOUR JOB!"]
 
-# --- 4. STATE ---
+# --- 3. STATE ---
 if 'balance' not in st.session_state: st.session_state.balance = 200
 if 'reels' not in st.session_state: st.session_state.reels = ["🥔", "🥔", "🥔"]
-if 'log_txt' not in st.session_state: st.session_state.log_txt = random.choice(LOG_WELCOME)
-if 'log_color' not in st.session_state: st.session_state.log_color = "#00ff00" # Neon Green
+if 'msg' not in st.session_state: st.session_state.msg = random.choice(LOG_WELCOME)
+if 'msg_color' not in st.session_state: st.session_state.msg_color = "#00ff00"
 
-# --- 5. ADVANCED CSS (THE "LOOK") ---
+# --- 4. CSS MAGIC (STICKY BUTTON) ---
 st.markdown("""
     <style>
-    /* MAIN THEME: Cyberpunk Terminal */
-    .stApp { background-color: #050505; color: #00ff00; font-family: 'Courier New', monospace; }
+    .stApp { background-color: #000; color: #fff; font-family: sans-serif; }
 
-    /* THE TERMINAL SCREEN (Log Box) */
-    .terminal-box {
-        border: 2px solid #00ff00;
-        background-color: #001100;
-        padding: 15px;
-        border-radius: 5px;
-        font-family: 'Courier New', monospace;
-        text-align: center;
-        margin-bottom: 20px;
-        min-height: 60px;
-        display: flex; align-items: center; justify-content: center;
-        box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
-        text-shadow: 0 0 5px #00ff00;
-        font-weight: bold;
-        letter-spacing: 1px;
-    }
-
-    /* THE REEL CONTAINER */
-    .machine-frame {
-        background: #111;
-        border: 4px solid #333;
-        border-radius: 15px;
-        padding: 20px;
-        box-shadow: inset 0 0 30px #000;
-        margin-bottom: 20px;
-    }
-
+    /* REEL CONTAINER */
     .reel-container {
-        display: flex; justify-content: space-between; gap: 10px;
+        display: flex; justify-content: center; gap: 10px; margin-top: 20px;
     }
-
-    /* INDIVIDUAL REELS */
     .reel {
-        width: 32%;
-        aspect-ratio: 1/1;
-        background-color: #000;
-        border: 2px solid #444;
-        border-radius: 10px;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 60px;
-        box-shadow: 0 0 10px rgba(0,0,0,0.8);
-        text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
-    }
-
-    /* THE BIG 'EXECUTE' BUTTON */
-    div.stButton > button {
-        width: 100%;
-        height: 100px;
-        font-family: 'Courier New', monospace;
-        font-size: 28px;
-        font-weight: 900;
-        letter-spacing: 2px;
-        background-color: #000;
-        color: #00ff00;
-        border: 2px solid #00ff00;
-        border-radius: 5px;
-        box-shadow: 0 0 10px #00ff00;
-        transition: all 0.2s ease-in-out;
-        text-transform: uppercase;
+        width: 30%; aspect-ratio: 1/1;
+        background: #111; border: 2px solid #333; border-radius: 15px;
+        font-size: 60px; display: flex; align-items: center; justify-content: center;
+        box-shadow: inset 0 0 20px #000;
     }
     
-    div.stButton > button:hover {
-        background-color: #00ff00;
-        color: #000;
-        box-shadow: 0 0 30px #00ff00;
-        transform: scale(1.02);
+    /* FEEDBACK LOG */
+    .log-box {
+        text-align: center; font-family: 'Courier New', monospace; font-weight: bold;
+        padding: 15px; margin: 20px 0; border-radius: 8px; border: 1px dashed #444;
+        font-size: 18px;
+    }
+
+    /* --- THE STICKY BUTTON HACK --- */
+    /* This targets the container of the button and pins it to the bottom */
+    div.stButton {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background: #000; /* Black background behind button to hide content */
+        padding: 15px;
+        z-index: 999;
+        text-align: center;
+        border-top: 1px solid #333;
+    }
+
+    /* STYLE THE BUTTON ITSELF */
+    div.stButton > button {
+        width: 100%;
+        height: 80px;
+        font-size: 28px !important;
+        font-weight: 900;
+        text-transform: uppercase;
+        background: linear-gradient(45deg, #ff0055, #ff00aa);
+        color: white;
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 0 20px rgba(255, 0, 100, 0.5);
+        transition: transform 0.1s;
     }
     
     div.stButton > button:active {
-        transform: scale(0.98);
-        box-shadow: 0 0 5px #00ff00;
+        transform: scale(0.95);
     }
-
-    /* REMOVE DEFAULT STREAMLIT PADDING */
-    .block-container { padding-top: 2rem; padding-bottom: 5rem; }
+    
+    /* Add padding to bottom of page so content doesn't get hidden behind button */
+    .block-container {
+        padding-bottom: 150px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 6. UI CONSTRUCTION ---
+# --- 5. UI LAYOUT ---
 
-st.markdown("<h2 style='text-align:center; color:#00ff00; text-shadow: 0 0 10px #00ff00;'>&gt; CYBER_SLOTS_v4</h2>", unsafe_allow_html=True)
+# Header
+st.markdown("<h2 style='text-align:center; color:#ff00aa;'>🎰 POCKET SLOTS</h2>", unsafe_allow_html=True)
 
-# 1. STATUS BAR
-c1, c2 = st.columns([1, 1])
+# Stats
+c1, c2 = st.columns(2)
 with c1:
-    st.markdown(f"<div style='border:1px solid #444; padding:10px; text-align:center; color:#00ff00;'>CREDITS: {st.session_state.balance}</div>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='text-align:center; color:#0f0;'>💰 ${st.session_state.balance}</h3>", unsafe_allow_html=True)
 with c2:
-    # Custom stylized selector
-    bet = st.select_slider("WAGER_AMOUNT", options=[10, 50, 100, "ALL"], value=10, label_visibility="collapsed")
+    bet = st.select_slider("BET", options=[10, 50, 100, "ALL"], value=10, label_visibility="collapsed")
     if bet == "ALL": bet = st.session_state.balance
 
-st.write("") # Spacer
-
-# 2. THE SCREEN (Reels)
-screen_placeholder = st.empty()
-
-def render_screen(r1, r2, r3):
+# Reels
+reel_placeholder = st.empty()
+def render_reels(r1, r2, r3):
     html = f"""
-    <div class="machine-frame">
-        <div class="reel-container">
-            <div class="reel">{r1}</div>
-            <div class="reel">{r2}</div>
-            <div class="reel">{r3}</div>
-        </div>
+    <div class="reel-container">
+        <div class="reel">{r1}</div>
+        <div class="reel">{r2}</div>
+        <div class="reel">{r3}</div>
     </div>
     """
-    screen_placeholder.markdown(html, unsafe_allow_html=True)
+    reel_placeholder.markdown(html, unsafe_allow_html=True)
 
-render_screen(*st.session_state.reels)
+render_reels(*st.session_state.reels)
 
-# 3. THE TERMINAL LOG (Feedback)
-log_placeholder = st.empty()
+# Message Log
+msg_placeholder = st.empty()
+def render_msg(text, color):
+    html = f"<div class='log-box' style='color:{color}; border-color:{color};'>{text}</div>"
+    msg_placeholder.markdown(html, unsafe_allow_html=True)
 
-def render_log(text, color):
-    html = f"""
-    <div class="terminal-box" style="border-color: {color}; color: {color}; text-shadow: 0 0 5px {color};">
-        &gt; {text}_
-    </div>
-    """
-    log_placeholder.markdown(html, unsafe_allow_html=True)
+render_msg(st.session_state.msg, st.session_state.msg_color)
 
-render_log(st.session_state.log_txt, st.session_state.log_color)
+# Payout Table (Scrollable content)
+with st.expander("Show Rules (Math)"):
+    st.write("🦄 Unicorn (1%) = 500x")
+    st.write("💎 Diamond (4%) = 100x")
+    st.write("🤡 Clown (10%) = 50x")
+    st.write("🍆 Eggplant (15%) = 20x")
+    st.write("💩 Poop (25%) = 10x")
+    st.write("🥔 Potato (45%) = 5x")
 
-# --- 7. GAME LOOP ---
+# --- 6. GAME LOGIC (CONNECTED TO STICKY BUTTON) ---
 
+# Decide what the button does based on Balance
 if st.session_state.balance <= 0:
-    render_log("CRITICAL ERROR: INSUFFICIENT FUNDS.", "#ff0000")
-    if st.button(">> REBOOT_SYSTEM (BEG FOR $50) <<"):
-        st.session_state.balance = 50
-        st.session_state.log_txt = "SYSTEM REBOOT SUCCESSFUL."
-        st.session_state.log_color = "#00ff00"
+    # BANKRUPT STATE
+    if st.button("💸 BEG FOR MONEY 💸"):
+        st.session_state.balance = 200
+        st.session_state.msg = "Here's $200. Don't be stupid."
+        st.session_state.msg_color = "#fff"
         st.rerun()
 else:
-    # THE BIG BUTTON
-    if st.button(">> EXECUTE_SPIN <<"):
-        
-        # Check Funds
+    # PLAYING STATE
+    if st.button("🔥 SPIN 🔥"):
         if bet > st.session_state.balance:
-            st.session_state.log_txt = "ERROR: FUNDS LOW. LOWER BET."
-            st.session_state.log_color = "#ff0000"
+            st.session_state.msg = "YOU ARE BROKE. LOWER BET."
+            st.session_state.msg_color = "red"
             st.rerun()
 
         # Deduct
         st.session_state.balance -= bet
         
-        # --- THE PHYSICS ANIMATION ---
-        # 20 Frames. Starts fast (0.05s) -> Slows to (0.2s)
-        spin_msg = random.choice(LOG_SPIN)
-        
+        # Anim
+        spin_txt = random.choice(LOG_SPIN)
         for i in range(20):
-            # 1. Randomize Reels
-            temp = [random.choice(POPULATION) for _ in range(3)]
-            render_screen(*temp)
-            render_log(spin_msg, "#ffff00") # Yellow during spin
-            
-            # 2. Calculate Decay (Braking effect)
-            # Logic: sleep time increases as 'i' gets bigger
-            decay = 0.05 + (i * 0.008) 
-            time.sleep(decay)
+            render_reels(random.choice(POPULATION), random.choice(POPULATION), random.choice(POPULATION))
+            render_msg(spin_txt, "#ffff00")
+            time.sleep(0.05 + (i * 0.005)) # Slow down effect
 
-        # --- FINAL CALCULATION ---
+        # Result
         final = random.choices(POPULATION, weights=WEIGHTS, k=3)
         st.session_state.reels = final
         r1, r2, r3 = final
         
-        # WIN CHECK
         if r1 == r2 == r3:
             s = SYMBOL_MAP[r1]
             win = bet * s.payout
             st.session_state.balance += win
             
-            # Color logic
-            if s.name == "ALIEN":
-                msg = f"👽 ALIEN CONTACT CONFIRMED (+{win})"
-                color = "#00ffff" # Cyan
-                st.balloons()
-            elif s.name == "DIAMOND":
-                msg = f"💎 MAX VALUE EXTRACTED (+{win})"
-                color = "#00ffff"
+            if s.name in ["Unicorn", "Diamond"]:
+                st.session_state.msg = random.choice(LOG_JACKPOT) + f" (+${win})"
+                st.session_state.msg_color = "#00ffff"
                 st.balloons()
             else:
-                msg = f"{random.choice(LOG_WIN)} (+{win})"
-                color = "#00ff00" # Green
+                st.session_state.msg = random.choice(LOG_WIN) + f" (+${win})"
+                st.session_state.msg_color = "#00ff00"
                 st.snow()
-                
         elif r1 == r2 or r2 == r3 or r1 == r3:
-            msg = random.choice(LOG_NEAR)
-            color = "#ffa500" # Orange
-            
+            st.session_state.msg = random.choice(LOG_NEAR)
+            st.session_state.msg_color = "#ffa500"
         else:
-            msg = random.choice(LOG_LOSE)
-            color = "#ff0000" # Red
-            
-        # Update State & UI
-        st.session_state.log_txt = msg
-        st.session_state.log_color = color
-        st.rerun()
+            st.session_state.msg = random.choice(LOG_LOSE)
+            st.session_state.msg_color = "#ff4444"
 
-# --- 8. FOOTER / PAYOUTS ---
-with st.expander(">> ACCESS_DATABASE (PAYOUTS)"):
-    st.markdown("""
-    | SYMBOL | CODE | PAYOUT | ODDS |
-    | :---: | :--- | :--- | :--- |
-    | 👽 | ALIEN | 500x | 1% |
-    | 💎 | DIAMOND | 100x | 4% |
-    | 🔋 | ENERGY | 50x | 10% |
-    | 💾 | FLOPPY | 20x | 15% |
-    | 💿 | DISK | 10x | 25% |
-    | 🥔 | POTATO | 5x | 45% |
-    """)
+        st.rerun()
