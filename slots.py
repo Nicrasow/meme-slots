@@ -2,170 +2,196 @@ import streamlit as st
 import random
 import time
 
-# --- PAGE CONFIGURATION ---
+# --- 1. MOBILE CONFIGURATION ---
 st.set_page_config(
-    page_title="Meme Slots Pro",
-    page_icon="🎰",
-    layout="centered"
+    page_title="Meme Slots Mobile",
+    page_icon="📱",
+    layout="centered",
+    initial_sidebar_state="collapsed"
 )
 
-# --- 1. SESSION STATE SETUP (The Game's Memory) ---
-# This ensures the game remembers the reels and memes even after the page updates
+# --- 2. TRASH TALK ENGINE (Funny Comments) ---
+SPIN_QUIPS = [
+    "🤞 Praying to the RNG gods...",
+    "🧠 Calculating success (0%)...",
+    "💸 Goodbye, $10...",
+    "👀 Mom! Get the camera!",
+    "🎢 Here we go again...",
+    "🔨 Smashing that spin button..."
+]
+
+WIN_QUIPS = [
+    "🚀 TO THE MOON!",
+    "🤯 HAX! I'm calling the police.",
+    "🍟 Dinner is on you tonight!",
+    "🕶️ Pure skill. Definitely not luck.",
+    "🏦 The IRS would like to know your location."
+]
+
+LOSE_QUIPS = [
+    "📉 Emotional Damage.",
+    "🤡 You played yourself.",
+    "🚮 Have you tried winning instead?",
+    "💀 My grandma spins better than this.",
+    "📉 Stonks only go down apparently."
+]
+
+# --- 3. SESSION STATE SETUP ---
 if 'balance' not in st.session_state:
     st.session_state.balance = 100
 if 'reels' not in st.session_state:
     st.session_state.reels = ["❓", "❓", "❓"]
 if 'game_state' not in st.session_state:
-    st.session_state.game_state = "READY" # Options: READY, WIN, LOSE
-if 'last_msg' not in st.session_state:
-    st.session_state.last_msg = "Press SPIN to start!"
+    st.session_state.game_state = "READY" 
+if 'commentary' not in st.session_state:
+    st.session_state.commentary = "Welcome to the Mobile Casino! 👇"
 
-# --- 2. CUSTOM CSS (The "Better Interface") ---
+# --- 4. RESPONSIVE MOBILE CSS ---
 st.markdown("""
     <style>
-    /* Main Background */
+    /* Dark Mode Background */
     .stApp {
-        background-color: #1e1e1e;
-        color: #ffffff;
-    }
-    
-    /* The Slot Machine Display Box */
-    .slot-container {
-        background-color: #000000;
-        border: 4px solid #d4af37; /* Gold Border */
-        border-radius: 15px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0px 0px 20px rgba(212, 175, 55, 0.5);
-    }
-    
-    /* The Individual Reels */
-    .reel-box {
-        background-color: #333333;
-        border: 2px solid #555;
-        border-radius: 10px;
+        background-color: #121212;
         color: white;
-        font-size: 80px;
-        text-align: center;
-        padding: 10px;
-        height: 140px;
-        line-height: 120px;
     }
     
-    /* Spin Button Styling */
+    /* The Slot Display - Flexbox for Mobile scaling */
+    .slot-row {
+        display: flex;
+        justify_content: space-between;
+        margin-bottom: 15px;
+    }
+    
+    /* Individual Reel Card */
+    .reel-card {
+        background-color: #2c2c2c;
+        border: 2px solid #f1c40f;
+        border-radius: 10px;
+        width: 30%; /* Fits 3 in a row comfortably on phone */
+        aspect-ratio: 1/1; /* Keeps it square */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem; /* Responsive font size */
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+    
+    /* Big Tappable Spin Button for Thumbs */
     div.stButton > button {
         width: 100%;
-        height: 70px;
-        background: linear-gradient(to bottom, #ff4b1f, #ff9068);
-        color: white;
-        font-size: 28px;
-        font-weight: bold;
+        padding-top: 20px;
+        padding-bottom: 20px;
+        font-size: 24px;
+        background: linear-gradient(90deg, #FF512F 0%, #DD2476 100%);
         border: none;
-        border-radius: 12px;
-        box-shadow: 0px 5px 0px #b03010;
-        transition: all 0.1s;
+        border-radius: 15px;
+        color: white;
+        font-weight: bold;
+        box-shadow: 0px 5px 15px rgba(221, 36, 118, 0.4);
+        transition: transform 0.1s;
     }
     div.stButton > button:active {
-        box-shadow: 0px 2px 0px #b03010;
-        transform: translateY(3px);
+        transform: scale(0.95);
     }
-    
-    /* Balance Display */
-    .balance-box {
-        font-family: 'Courier New', monospace;
-        background-color: #222;
-        color: #0f0;
-        padding: 10px;
-        border: 1px solid #444;
-        border-radius: 5px;
+
+    /* Commentary Box */
+    .comment-box {
         text-align: center;
-        font-size: 24px;
-        font-weight: bold;
+        font-style: italic;
+        color: #aaa;
         margin-bottom: 10px;
+        min-height: 1.5em;
+    }
+
+    /* Balance Badge */
+    .balance-badge {
+        background-color: #333;
+        padding: 10px 20px;
+        border-radius: 20px;
+        font-weight: bold;
+        color: #2ecc71;
+        text-align: center;
+        border: 1px solid #444;
+        margin-bottom: 20px;
     }
     </style>
-    """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-# --- 3. ASSETS ---
+# --- 5. GAME LOGIC ---
 symbols = ["🍒", "🍋", "🔔", "💎", "7️⃣", "🍇"]
-win_img = "https://i.imgflip.com/1ur9b0.jpg"  # Distracted Boyfriend
-lose_img = "https://i.imgflip.com/26am.jpg"   # This is Fine dog
+win_img = "https://i.imgflip.com/1ur9b0.jpg"
+lose_img = "https://i.imgflip.com/26am.jpg"
 
-# --- 4. HEADER & BALANCE ---
-st.markdown("<h1 style='text-align: center; color: #d4af37;'>🎰 MEME CASINO PRO 🎰</h1>", unsafe_allow_html=True)
+# Header
+st.markdown("<h2 style='text-align: center;'>🎰 POCKET SLOTS</h2>", unsafe_allow_html=True)
 
-# Display Balance
-st.markdown(f"<div class='balance-box'>WALLET: ${st.session_state.balance}</div>", unsafe_allow_html=True)
+# Balance
+st.markdown(f"<div class='balance-badge'>CREDITS: ${st.session_state.balance}</div>", unsafe_allow_html=True)
 
-# --- 5. THE SLOT MACHINE UI ---
-# We use a container to group the reels visually
-with st.container():
-    st.markdown("<div class='slot-container'>", unsafe_allow_html=True)
-    c1, c2, c3 = st.columns(3)
-    
-    # We create placeholders. These are what we update during animation.
-    with c1:
-        reel1 = st.empty()
-    with c2:
-        reel2 = st.empty()
-    with c3:
-        reel3 = st.empty()
-    st.markdown("</div>", unsafe_allow_html=True)
+# Commentary
+st.markdown(f"<div class='comment-box'>\"{st.session_state.commentary}\"</div>", unsafe_allow_html=True)
 
-# Helper function to draw the reels
-def update_reels(r1_symbol, r2_symbol, r3_symbol):
-    reel1.markdown(f"<div class='reel-box'>{r1_symbol}</div>", unsafe_allow_html=True)
-    reel2.markdown(f"<div class='reel-box'>{r2_symbol}</div>", unsafe_allow_html=True)
-    reel3.markdown(f"<div class='reel-box'>{r3_symbol}</div>", unsafe_allow_html=True)
+# REELS DISPLAY (Using HTML for perfect mobile layout)
+# We use st.empty() to allow animation updates
+reels_placeholder = st.empty()
 
-# Draw the current state (this keeps the symbols on screen between clicks)
-update_reels(st.session_state.reels[0], st.session_state.reels[1], st.session_state.reels[2])
+def render_reels(r1, r2, r3):
+    html = f"""
+    <div class="slot-row">
+        <div class="reel-card">{r1}</div>
+        <div class="reel-card">{r2}</div>
+        <div class="reel-card">{r3}</div>
+    </div>
+    """
+    reels_placeholder.markdown(html, unsafe_allow_html=True)
 
-# --- 6. CONTROLS & LOGIC ---
-if st.button("SPIN! ($10)"):
+# Render current state
+render_reels(st.session_state.reels[0], st.session_state.reels[1], st.session_state.reels[2])
+
+# SPIN BUTTON
+if st.button("SPIN ($10)"):
     if st.session_state.balance < 10:
-        st.error("🚫 You are bankrupt! Refresh the page to reset.")
+        st.error("🚫 BROKE ALERT! Refresh to reset.")
     else:
-        # Clear previous result message/meme immediately
+        # 1. Start Spin: Deduct money & update comment
+        st.session_state.balance -= 10
         st.session_state.game_state = "SPINNING"
         
-        # ANIMATION LOOP
-        # This runs "live" before we calculate the final result
-        for i in range(12):
-            s1 = random.choice(symbols)
-            s2 = random.choice(symbols)
-            s3 = random.choice(symbols)
-            update_reels(s1, s2, s3)
-            time.sleep(0.1) # Speed of spin
+        # Show a random "Spinning" quip immediately
+        rand_quip = random.choice(SPIN_QUIPS)
+        st.markdown(f"<div class='comment-box'>\"{rand_quip}\"</div>", unsafe_allow_html=True)
         
-        # CALCULATE FINAL RESULT
+        # 2. Animation Loop (Flicker effect)
+        for _ in range(10):
+            r1 = random.choice(symbols)
+            r2 = random.choice(symbols)
+            r3 = random.choice(symbols)
+            render_reels(r1, r2, r3)
+            time.sleep(0.1)
+
+        # 3. Final Result
         final_reels = [random.choice(symbols) for _ in range(3)]
-        
-        # SAVE TO MEMORY (State)
         st.session_state.reels = final_reels
-        st.session_state.balance -= 10
-        
-        # DETERMINE WIN/LOSS
+
+        # 4. Win/Lose Logic
         if final_reels[0] == final_reels[1] == final_reels[2]:
             st.session_state.balance += 100
             st.session_state.game_state = "WIN"
-            st.session_state.last_msg = "JACKPOT! +$100"
+            st.session_state.commentary = random.choice(WIN_QUIPS)
         else:
             st.session_state.game_state = "LOSE"
-            st.session_state.last_msg = "YOU LOST $10"
-            
-        # RERUN to update the Balance at the top and show the meme below
+            st.session_state.commentary = random.choice(LOSE_QUIPS)
+        
+        # 5. Rerun to update the Balance badge and show the meme
         st.rerun()
 
-# --- 7. RESULT DISPLAY (Stays until next spin) ---
+# --- 6. RESULTS & MEMES (Persistent) ---
+# This code runs after the rerun, keeping the meme on screen
 if st.session_state.game_state == "WIN":
-    st.success(st.session_state.last_msg)
+    st.success("JACKPOT! +$100")
     st.balloons()
-    st.image(win_img, caption="STONKS 📈", use_container_width=True)
-
+    st.image(win_img, use_container_width=True) # use_container_width is best for mobile
+    
 elif st.session_state.game_state == "LOSE":
-    st.error(st.session_state.last_msg)
-    st.image(lose_img, caption="NOT STONKS 📉", use_container_width=True)
-
-elif st.session_state.game_state == "READY":
-    st.info("Good Luck! Spin to win.")
+    st.error("You lost $10")
+    st.image(lose_img, use_container_width=True)
