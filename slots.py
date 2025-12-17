@@ -4,81 +4,129 @@ import time
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="Meme Slots 🎰",
-    page_icon="🍒",
+    page_title="Meme Slots Ultimate",
+    page_icon="🎰",
     layout="centered"
 )
 
-# --- CUSTOM CSS (To make it look like a casino) ---
+# --- CSS STYLING (To make it look like a game) ---
 st.markdown("""
     <style>
     .stApp {
         background-color: #0e1117;
-        color: white;
     }
-    .css-10trblm {
-        color: #f1c40f;
-    }
-    .stButton>button {
-        color: white;
-        background-color: #e74c3c;
+    .reel-box {
+        border: 2px solid #f1c40f;
         border-radius: 10px;
-        height: 3em;
+        padding: 20px;
+        text-align: center;
+        background-color: #2c3e50;
+        font-size: 60px;
+    }
+    div.stButton > button {
         width: 100%;
+        height: 60px;
+        font-size: 24px;
+        background-color: #e74c3c;
+        color: white;
         font-weight: bold;
-        font-size: 20px;
+        border: none;
+        border-radius: 10px;
+    }
+    div.stButton > button:hover {
+        background-color: #c0392b;
+        border: 2px solid white;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- INITIALIZE STATE (To remember balance between spins) ---
+# --- INITIALIZE BALANCE ---
 if 'balance' not in st.session_state:
     st.session_state.balance = 100
 
-# --- GAME ASSETS ---
+# --- ASSETS ---
 symbols = ["🍒", "🍋", "🔔", "💎", "7️⃣", "🍇"]
-# NOTE: To host online easily, we will use URL images instead of local files
-# You can replace these URLs with links to your own memes
-win_image_url = "https://i.imgflip.com/1ur9b0.jpg"  # Example: Distracted Boyfriend
-lose_image_url = "https://i.imgflip.com/26am.jpg"   # Example: This is Fine dog
 
-# --- THE APP UI ---
-st.title("💸 MEME CASINO WEB 💸")
-st.write("Current Balance")
-st.metric(label="", value=f"${st.session_state.balance}")
+# Using public URLs for memes so they work instantly
+win_img = "https://i.imgflip.com/1ur9b0.jpg"  # Distracted Boyfriend
+lose_img = "https://i.imgflip.com/26am.jpg"   # This is Fine dog
+
+# --- TITLE & BALANCE ---
+st.title("💸 MEME CASINO 💸")
+
+col_bal, col_status = st.columns([1, 2])
+with col_bal:
+    st.metric("Your Money", f"${st.session_state.balance}")
+
+# --- THE SLOT MACHINE DISPLAY ---
+# We create empty placeholders first so we can update them during animation
+c1, c2, c3 = st.columns(3)
+with c1:
+    slot1 = st.empty()
+with c2:
+    slot2 = st.empty()
+with c3:
+    slot3 = st.empty()
+
+# Function to render a single slot box
+def draw_slot(placeholder, symbol):
+    placeholder.markdown(f"<div class='reel-box'>{symbol}</div>", unsafe_allow_html=True)
+
+# Draw initial state (Question marks)
+draw_slot(slot1, "❓")
+draw_slot(slot2, "❓")
+draw_slot(slot3, "❓")
+
+# --- MESSAGE AREA ---
+result_area = st.empty()
 
 # --- SPIN LOGIC ---
-if st.button("SPIN ($10) 🎰"):
+if st.button("SPIN! ($10)"):
     if st.session_state.balance < 10:
-        st.error("You are broke! Refresh the page to reset.")
+        result_area.error("🚫 BROKE! You have no money left. Refresh page to reset.")
     else:
-        # Deduct money
+        # 1. Deduct Money
         st.session_state.balance -= 10
         
-        # Spin animation (simulated)
-        slots = st.columns(3)
-        with st.spinner("Spinning..."):
-            time.sleep(1) # Fake delay for suspense
+        # 2. THE ANIMATION LOOP
+        # This loop runs 15 times rapidly to simulate spinning
+        for i in range(15):
+            # Pick random symbols just for the visual effect
+            s1 = random.choice(symbols)
+            s2 = random.choice(symbols)
+            s3 = random.choice(symbols)
             
-        # Generate results
-        results = [random.choice(symbols) for _ in range(3)]
-        
-        # Show results big
-        for i, symbol in enumerate(results):
-            with slots[i]:
-                st.markdown(f"<h1 style='text-align: center; font-size: 80px;'>{symbol}</h1>", unsafe_allow_html=True)
+            draw_slot(slot1, s1)
+            draw_slot(slot2, s2)
+            draw_slot(slot3, s3)
+            
+            # Pause briefly to create the "flicker" effect
+            time.sleep(0.1)
 
-        # Win/Loss Check
-        if results[0] == results[1] == results[2]:
+        # 3. GENERATE FINAL RESULT
+        final_1 = random.choice(symbols)
+        final_2 = random.choice(symbols)
+        final_3 = random.choice(symbols)
+        
+        # Show final symbols
+        draw_slot(slot1, final_1)
+        draw_slot(slot2, final_2)
+        draw_slot(slot3, final_3)
+
+        # 4. CHECK WIN/LOSS
+        if final_1 == final_2 == final_3:
+            # WIN
             winnings = 100
             st.session_state.balance += winnings
-            st.success(f"JACKPOT! You won ${winnings}!")
+            result_area.success(f"🎉 JACKPOT! You won ${winnings}!")
             st.balloons()
-            st.image(win_image_url, caption="STONKS 📈")
+            st.image(win_img, caption="EZ MONEY!")
         else:
-            st.warning("You lost...")
-            if random.random() < 0.3:
-                st.image(lose_image_url, caption="NOT STONKS 📉")
-            
-            # Force a rerun to update the balance metric at the top immediately
-            st.rerun()
+            # LOSS
+            result_area.error("📉 YOU LOST!")
+            st.image(lose_img, caption="Emotional Damage")
+        
+        # We perform a tiny sleep so the user sees the image, 
+        # then we force a rerun to update the 'Your Money' metric at the top
+        time.sleep(1)
+        st.rerun()
