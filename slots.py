@@ -1,228 +1,273 @@
 import streamlit as st
 import random
 import time
+from dataclasses import dataclass
 
-# --- 1. CONFIGURATION ---
+# --- 1. ARCHITECTURE & CONFIGURATION ---
 st.set_page_config(
-    page_title="Meme Slots Deluxe",
+    page_title="Vegas Pro Slots",
     page_icon="🎰",
-    layout="centered",
-    initial_sidebar_state="collapsed"
+    layout="wide",  # distinct wide layout for a "cabinet" feel
+    initial_sidebar_state="expanded"
 )
 
-# --- 2. GAME ASSETS & PAYOUTS ---
-# Dictionary: Symbol -> Multiplier (How much you win)
-PAYOUTS = {
-    "🍒": 5,   # Weak win (5x bet)
-    "🍋": 5,
-    "🍇": 10,  # Medium win (10x bet)
-    "🔔": 10,
-    "7️⃣": 20,  # Big win (20x bet)
-    "💎": 50   # JACKPOT (50x bet)
-}
-SYMBOLS = list(PAYOUTS.keys())
+# Define a Data Class for our Symbols (Best Practice for structured data)
+@dataclass
+class Symbol:
+    emoji: str
+    name: str
+    payout: int
+    weight: int  # Higher number = more likely to appear
 
-# Meme URLs (Direct image links)
-WIN_IMG = "https://i.imgflip.com/1ur9b0.jpg"   # Success Kid
-LOSE_IMG = "https://i.imgflip.com/26am.jpg"    # Crying Jordan or similar
-JACKPOT_IMG = "https://i.imgflip.com/1h7in3.jpg" # Leo Toast
-
-# Trash Talk & Hype Lines
-QUIPS_SPIN = [
-    "Let's gooooo!", 
-    "Daddy needs a new pair of GPUs!", 
-    "Manifesting a win...", 
-    "Spinning for glory!",
-    "Do it for the vine!"
-]
-QUIPS_LOSE = [
-    "Oof. That hurt.", 
-    "Rigged? Maybe.", 
-    "My grandmother spins better.", 
-    "Insert coin to cry.",
-    "Skill issue.",
-    "Emotional Damage."
+# CONFIGURATION: The "Math" behind the machine
+# Weights total to 100 for easy probability calculation
+SYMBOLS = [
+    Symbol("🍒", "Cherry",  3,  40), # 40% chance
+    Symbol("🍋", "Lemon",   5,  30), # 30% chance
+    Symbol("🍇", "Grape",   10, 15), # 15% chance
+    Symbol("🔔", "Bell",    20, 10), # 10% chance
+    Symbol("💎", "Diamond", 50, 4),  # 4% chance
+    Symbol("🃏", "Joker",   100, 1)  # 1% chance (ULTRA RARE)
 ]
 
-# --- 3. STATE MANAGEMENT ---
-# Initialize session state variables if they don't exist
-if 'balance' not in st.session_state:
-    st.session_state.balance = 200 # Starting Bankroll
-if 'reels' not in st.session_state:
-    st.session_state.reels = ["7️⃣", "7️⃣", "7️⃣"]
-if 'game_state' not in st.session_state:
-    st.session_state.game_state = "READY"
-if 'message' not in st.session_state:
-    st.session_state.message = "Pick your bet and spin!"
-if 'last_win' not in st.session_state:
-    st.session_state.last_win = 0
+# Separate lists for logic processing
+SYMBOL_OBJECTS = {s.emoji: s for s in SYMBOLS}
+POPULATION = [s.emoji for s in SYMBOLS]
+WEIGHTS = [s.weight for s in SYMBOLS]
 
-# --- 4. CSS STYLING ---
+# --- 2. STATE MANAGEMENT ---
+def init_state():
+    """Initialize all session state variables in one place."""
+    if 'balance' not in st.session_state:
+        st.session_state.balance = 500
+    if 'reels' not in st.session_state:
+        st.session_state.reels = ["🍒", "🍒", "🍒"]
+    if 'history' not in st.session_state:
+        st.session_state.history = [] # List to store string logs
+    if 'msg_type' not in st.session_state:
+        st.session_state.msg_type = "info" # info, success, error, warning
+    if 'message' not in st.session_state:
+        st.session_state.message = "Welcome to Vegas Pro! Good Luck."
+
+init_state()
+
+# --- 3. HELPER FUNCTIONS ---
+def spin_logic():
+    """
+    Selects 3 symbols based on their probability weights.
+    Returns: List of 3 emojis
+    """
+    return random.choices(POPULATION, weights=WEIGHTS, k=3)
+
+def check_win(reels, bet):
+    """
+    Analyzes the reels and calculates payout.
+    Returns: (winnings, message, type)
+    """
+    # 1. Jackpot: All 3 match
+    if reels[0] == reels[1] == reels[2]:
+        symbol_data = SYMBOL_OBJECTS[reels[0]]
+        win = bet * symbol_data.payout
+        
+        if symbol_data.name == "Joker":
+            return win, f"🃏 ULTIMATE JACKPOT! {symbol_data.payout}x!", "balloons"
+        elif symbol_data.name == "Diamond":
+            return win, f"💎 MEGA WIN! {symbol_data.payout}x!", "balloons"
+        else:
+            return win, f"✨ NICE! Triple {symbol_data.name}! (+${win})", "success"
+    
+    # 2. Mini Win: 2 match (Optional rule to make it friendlier)
+    # Checks: A==B or B==C or A==C
+    elif reels[0] == reels[1] or reels[1] == reels[2] or reels[0] == reels[2]:
+        # Find the matching symbol
+        if reels[0] == reels[1]: match = reels[0]
+        elif reels[1] == reels[2]: match = reels[1]
+        else: match = reels[0]
+        
+        symbol_data = SYMBOL_OBJECTS[match]
+        # Half payout for 2 matches
+        mini_win = int(bet * (symbol_data.payout / 2)) 
+        if mini_win < 1: mini_win = 1 # Minimum win 1
+        return mini_win, f"🤏 Mini Win: Double {symbol_data.name} (+${mini_win})", "success"
+
+    # 3. Loss
+    else:
+        loss_msgs = ["Whiff.", "The machine is cold.", "Ouch.", "Spin again!", "So close..."]
+        return 0, random.choice(loss_msgs), "error"
+
+# --- 4. ADVANCED CSS STYLING ---
 st.markdown("""
     <style>
-    .stApp { background-color: #121212; color: white; }
+    /* Dark Casino Theme */
+    .stApp { background-color: #0e0e0e; }
     
-    /* MACHINE CONTAINER */
-    .machine-container {
-        background: linear-gradient(145deg, #2b2b2b, #1e1e1e);
-        border: 4px solid #d4af37; /* Gold Border */
-        border-radius: 20px;
+    /* The Cabinet Frame */
+    .cabinet {
+        background: linear-gradient(180deg, #444, #222);
+        border: 8px solid #c0a062;
+        border-radius: 30px;
+        padding: 30px;
+        box-shadow: 0 0 50px rgba(0,0,0,0.9), inset 0 0 20px #000;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    /* The Screen inside the Cabinet */
+    .screen {
+        background-color: #000;
+        border: 4px solid #111;
+        border-radius: 15px;
         padding: 20px;
-        box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
         margin-bottom: 20px;
+        box-shadow: inset 0 0 20px #000;
+    }
+
+    /* Reel Styling */
+    .reel {
+        font-size: 80px;
+        background: linear-gradient(0deg, #f0f0f0 0%, #fff 50%, #d9d9d9 100%);
+        width: 100%;
+        border-radius: 10px;
         text-align: center;
+        border: 2px solid #555;
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
+        text-shadow: 2px 2px 0px rgba(0,0,0,0.2);
     }
 
-    /* REELS */
-    .reel-container {
-        display: flex; justify-content: center; gap: 15px;
-        background-color: #000; padding: 15px; border-radius: 10px; border: 2px inset #555;
+    /* Stats Box */
+    .stat-box {
+        background: #222;
+        border: 1px solid #444;
+        padding: 10px;
+        border-radius: 8px;
+        text-align: center;
+        color: #fff;
+        font-family: monospace;
     }
-    .reel-box {
-        background-color: #fff; 
-        width: 80px; height: 80px;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 50px; border-radius: 8px; color: black;
-        box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
-    }
-
-    /* SPIN BUTTON */
+    .stat-value { font-size: 24px; color: #c0a062; font-weight: bold; }
+    
+    /* Custom Button */
     div.stButton > button {
-        width: 100%; height: 80px; font-size: 24px; font-weight: 900;
-        text-transform: uppercase; color: white; border: none; border-radius: 15px;
-        background: radial-gradient(circle, #ff4b1f 0%, #ff9068 100%);
-        box-shadow: 0px 6px 0px #b83b3e, 0px 10px 20px rgba(0,0,0,0.4);
-        transition: all 0.1s;
+        background: linear-gradient(180deg, #ff0000, #cc0000);
+        color: white; border: none; padding: 15px 30px;
+        font-size: 24px; font-weight: bold; text-transform: uppercase;
+        width: 100%; border-radius: 10px;
+        box-shadow: 0 5px 0 #990000;
     }
     div.stButton > button:active {
-        transform: translateY(4px); box-shadow: 0px 2px 0px #b83b3e;
+        transform: translateY(4px); box-shadow: 0 1px 0 #990000;
     }
-    
-    /* RESTART BUTTON (Blue) */
-    .reset-btn > button {
-        background: radial-gradient(circle, #3498db 0%, #2980b9 100%);
-        box-shadow: 0px 6px 0px #1f618d;
-    }
-
-    /* INFO TEXT */
-    .status-text { font-size: 20px; font-weight: bold; color: #f1c40f; margin-bottom: 10px; min-height: 30px; }
     </style>
 """, unsafe_allow_html=True)
 
 # --- 5. UI LAYOUT ---
 
-st.markdown("<h1 style='text-align: center; color: #d4af37; text-shadow: 2px 2px #000;'>🎰 MEME SLOTS DELUXE 🎰</h1>", unsafe_allow_html=True)
+# Sidebar: History & Rules
+with st.sidebar:
+    st.markdown("## 📜 Spin History")
+    # Show last 10 spins, reversed
+    for entry in reversed(st.session_state.history[-10:]):
+        st.text(entry)
+    
+    st.markdown("---")
+    st.markdown("## ℹ️ Pay Table")
+    for s in SYMBOLS:
+        st.markdown(f"**{s.emoji} {s.name}**: {s.payout}x")
+    st.markdown("*Double Match = Half Payout*")
 
-# Scoreboard
-c1, c2 = st.columns(2)
+# Main Area
+st.markdown("<div class='cabinet'>", unsafe_allow_html=True)
+
+# Header
+st.markdown("<h1 style='text-align:center; color:#c0a062; margin-top:0;'>🎰 VEGAS PRO 🎰</h1>", unsafe_allow_html=True)
+
+# Stats Row
+c1, c2, c3 = st.columns(3)
 with c1:
-    st.markdown(f"<div style='background:#333; padding:10px; border-radius:10px; text-align:center; color:#2ecc71; border:1px solid #d4af37;'><b>🏦 BANK: ${st.session_state.balance}</b></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='stat-box'>BALANCE<div class='stat-value'>${st.session_state.balance}</div></div>", unsafe_allow_html=True)
 with c2:
-    if st.session_state.last_win > 0:
-        st.markdown(f"<div style='background:#333; padding:10px; border-radius:10px; text-align:center; color:#f1c40f; border:1px solid #d4af37;'><b>🏆 WON: +${st.session_state.last_win}</b></div>", unsafe_allow_html=True)
-    else:
-        st.markdown(f"<div style='background:#333; padding:10px; border-radius:10px; text-align:center; color:#777; border:1px solid #555;'>WON: $0</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='stat-box'>LAST BET<div class='stat-value'>${st.session_state.history[-1].split('|')[1].strip() if st.session_state.history else 0}</div></div>", unsafe_allow_html=True)
+with c3:
+    # Bet Selection
+    bet = st.select_slider("WAGER", options=[10, 20, 50, 100, 200, 500], value=20, label_visibility="collapsed")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Bet Selector
-bet_amount = st.select_slider("Select Bet Amount:", options=[10, 20, 50, 100], value=10)
+# THE REELS (Using Streamlit Columns for responsive layout)
+# We use a container to hold the reels
+reel_placeholder = st.empty()
 
-# REEL DISPLAY FUNCTION
-slot_placeholder = st.empty()
+# Function to draw the reels
+def draw_reels(r1, r2, r3, msg_text, msg_color="#fff"):
+    with reel_placeholder.container():
+        st.markdown("<div class='screen'>", unsafe_allow_html=True)
+        # Message Bar
+        st.markdown(f"<h3 style='text-align:center; color:{msg_color}; margin:0 0 20px 0;'>{msg_text}</h3>", unsafe_allow_html=True)
+        
+        # Reels
+        rc1, rc2, rc3 = st.columns(3)
+        with rc1: st.markdown(f"<div class='reel'>{r1}</div>", unsafe_allow_html=True)
+        with rc2: st.markdown(f"<div class='reel'>{r2}</div>", unsafe_allow_html=True)
+        with rc3: st.markdown(f"<div class='reel'>{r3}</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-def render_machine(r1, r2, r3, msg):
-    html_code = f"""
-    <div class="machine-container">
-        <div class="status-text">{msg}</div>
-        <div class="reel-container">
-            <div class="reel-box">{r1}</div>
-            <div class="reel-box">{r2}</div>
-            <div class="reel-box">{r3}</div>
-        </div>
-    </div>
-    """
-    slot_placeholder.markdown(html_code, unsafe_allow_html=True)
+# Draw initial state
+draw_reels(*st.session_state.reels, st.session_state.message)
 
-# Initial Render
-render_machine(st.session_state.reels[0], st.session_state.reels[1], st.session_state.reels[2], st.session_state.message)
+st.markdown("</div>", unsafe_allow_html=True) # End Cabinet
 
-# --- 6. GAME LOGIC ---
+# --- 6. GAME CONTROL ---
+st.markdown("<br>", unsafe_allow_html=True)
 
-# Check if player is broke (less than min bet)
-if st.session_state.balance < 10:
-    st.error("💸 YOU ARE BROKE!")
-    st.markdown("<div class='reset-btn'>", unsafe_allow_html=True)
-    if st.button("🔄 RESTART GAME (Beg for money)"):
-        st.session_state.balance = 200
-        st.session_state.game_state = "READY"
-        st.session_state.message = "Here's $200. Don't lose it all."
-        st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)
+# Centered Button
+_, col_btn, _ = st.columns([1, 2, 1])
 
-else:
-    # SPIN BUTTON
-    if st.button(f"🔴 SPIN (${bet_amount})"):
-        if st.session_state.balance < bet_amount:
-            st.session_state.message = "⚠️ You can't afford that bet!"
-            render_machine(*st.session_state.reels, st.session_state.message)
-        else:
-            # 1. Deduct Cost & Reset
-            st.session_state.balance -= bet_amount
-            st.session_state.last_win = 0
-            
-            # 2. Animation Effect
-            hype_msg = random.choice(QUIPS_SPIN)
-            for _ in range(15): # Spin 15 times quickly
-                r1 = random.choice(SYMBOLS)
-                r2 = random.choice(SYMBOLS)
-                r3 = random.choice(SYMBOLS)
-                render_machine(r1, r2, r3, hype_msg)
-                time.sleep(0.05) # Speed of animation
-
-            # 3. Determine Final Result
-            final_reels = [random.choice(SYMBOLS) for _ in range(3)]
-            st.session_state.reels = final_reels
-
-            # 4. Check for Win (All 3 must match)
-            if final_reels[0] == final_reels[1] == final_reels[2]:
-                symbol = final_reels[0]
-                multiplier = PAYOUTS[symbol]
-                winnings = bet_amount * multiplier
-                
-                st.session_state.balance += winnings
-                st.session_state.last_win = winnings
-                
-                if symbol == "💎":
-                    st.session_state.game_state = "JACKPOT"
-                    st.session_state.message = f"💎 JACKPOT!!! +${winnings}"
-                else:
-                    st.session_state.game_state = "WIN"
-                    st.session_state.message = f"WINNER! ({symbol}) +${winnings}"
-            else:
-                st.session_state.game_state = "LOSE"
-                st.session_state.message = random.choice(QUIPS_LOSE)
-
+with col_btn:
+    # Check bankruptcy
+    if st.session_state.balance < 10:
+        st.error("📉 YOU ARE BANKRUPT!")
+        if st.button("🔄 REFILL WALLET"):
+            st.session_state.balance = 500
+            st.session_state.history.append("🔄 Refilled Wallet")
             st.rerun()
+    else:
+        spin_btn = st.button("SPIN REELS 🎲")
 
-# --- 7. MEME REACTION AREA ---
-st.markdown("---")
-if st.session_state.game_state == "JACKPOT":
-    st.balloons()
-    st.image(JACKPOT_IMG, caption="RETIREMENT SECURED!", use_container_width=True)
-
-elif st.session_state.game_state == "WIN":
-    st.snow() # Little confetti
-    st.image(WIN_IMG, caption="Profit!", use_container_width=True)
-
-elif st.session_state.game_state == "LOSE":
-    st.image(LOSE_IMG, caption="Better luck next time...", use_container_width=True)
-
-# --- 8. RULES LEGEND ---
-with st.expander("ℹ️ Payout Rules"):
-    st.markdown("""
-    * 💎 **Diamond:** 50x (Jackpot)
-    * 7️⃣ **Seven:** 20x
-    * 🍇 **Grapes/Bell:** 10x
-    * 🍒 **Cherry/Lemon:** 5x
-    """)
+        if spin_btn:
+            if st.session_state.balance >= bet:
+                # 1. Pay Logic
+                st.session_state.balance -= bet
+                
+                # 2. Animation Loop (Visual Only)
+                for _ in range(10):
+                    temp_reels = [random.choice(POPULATION) for _ in range(3)]
+                    draw_reels(*temp_reels, "Spinning...", "#aaa")
+                    time.sleep(0.05)
+                
+                # 3. Determine Result (Weighted)
+                result_reels = spin_logic()
+                st.session_state.reels = result_reels
+                
+                # 4. Calculate Winnings
+                winnings, msg, effect = check_win(result_reels, bet)
+                
+                # 5. Update State
+                st.session_state.balance += winnings
+                st.session_state.message = msg
+                
+                # 6. Update History
+                hist_symbol = "✅" if winnings > 0 else "❌"
+                st.session_state.history.append(f"{hist_symbol} | {bet} | {' '.join(result_reels)} | {winnings:+}")
+                
+                # 7. Final Render & Effects
+                color = "#4caf50" if winnings > 0 else "#f44336"
+                draw_reels(*result_reels, msg, color)
+                
+                if effect == "balloons":
+                    st.balloons()
+                elif effect == "success":
+                    st.snow()
+                
+                st.rerun() # Force update to refresh balance immediately
+            else:
+                st.warning("Not enough funds!")
